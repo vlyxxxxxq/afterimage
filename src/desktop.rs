@@ -36,6 +36,8 @@ use windows::{
     core::PCWSTR,
 };
 use wry::{WebContext, WebView, WebViewBuilder};
+const SHOW_STUDIO: u32 = windows::Win32::UI::WindowsAndMessaging::WM_APP + 0x41;
+
 type Done = std::result::Result<(PathBuf, String, bool), String>;
 #[derive(Debug)]
 enum Action {
@@ -385,14 +387,16 @@ pub fn run() -> Result<()> {
         let h = CreateMutexW(None, false, PCWSTR(wide.as_ptr()))?;
         if GetLastError() == ERROR_ALREADY_EXISTS {
             if std::env::args().any(|a| a == "--show") {
-                use windows::Win32::UI::WindowsAndMessaging::{
-                    FindWindowW, SW_RESTORE, SetForegroundWindow, ShowWindow,
-                };
+                use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, PostMessageW};
                 if let Ok(existing) =
                     FindWindowW(None, windows::core::w!("Afterimage • Replay studio"))
                 {
-                    let _ = ShowWindow(existing, SW_RESTORE);
-                    let _ = SetForegroundWindow(existing);
+                    PostMessageW(
+                        Some(existing),
+                        SHOW_STUDIO,
+                        windows::Win32::Foundation::WPARAM(0),
+                        windows::Win32::Foundation::LPARAM(0),
+                    )?;
                 }
             }
             return Ok(());
@@ -424,7 +428,12 @@ pub fn run() -> Result<()> {
     let h = hook.clone();
     builder.with_msg_hook(move |p| {
         let m = unsafe { &*(p as *const MSG) };
-        if m.message == WM_HOTKEY && m.wParam.0 == 1 {
+        if m.message == SHOW_STUDIO {
+            if let Some(proxy) = h.lock().unwrap().as_ref() {
+                post(proxy, Action::Open);
+            }
+            true
+        } else if m.message == WM_HOTKEY && m.wParam.0 == 1 {
             if let Some(proxy) = h.lock().unwrap().as_ref() {
                 post(proxy, Action::Cmd(json!({"cmd":"save"})));
             }

@@ -1,6 +1,6 @@
 [package]
 name = "afterimage"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 description = "A local-first Windows replay recorder and clip editor"
 
@@ -19,3 +19,4 @@ windows = { version = "0.62", features = ["Win32_Media_Audio","Win32_System_Com"
 
 [build-dependencies]
 tauri-winres = "0.3"
+
