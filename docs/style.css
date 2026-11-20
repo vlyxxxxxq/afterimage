@@ -1,0 +1,80 @@
+:root {
+  color-scheme: dark;
+  --base: #100c16;
+  --ink: #fbf8ff;
+  --muted: #c2b6cd;
+  --orchid: #d5afff;
+  --edge: #45354d;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at 93% 24%, #45204d66, transparent 45rem),
+    radial-gradient(ellipse at 9% 6%, #27204b55, transparent 36rem),
+    var(--base);
+}
+a { color: inherit; text-underline-offset: .28em; }
+a:focus-visible { outline: 3px solid var(--orchid); outline-offset: 5px; }
+.skip { position: fixed; inset: .5rem auto auto .5rem; transform: translateY(-180%); z-index: 2; background: var(--ink); color: var(--base); padding: .7rem; }
+.skip:focus { transform: none; }
+.wrap { width: min(90%, 87rem); margin-inline: auto; }
+.mast, footer { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.mast { min-height: 5.4rem; border-bottom: 1px solid var(--edge); }
+.wordmark { display: inline-flex; align-items: center; gap: .5rem; letter-spacing: -.065em; font-size: 1.5rem; font-weight: 700; text-decoration: none; }
+.wordmark img { display: block; }
+nav { display: flex; align-items: center; gap: clamp(1rem, 3vw, 2.7rem); }
+nav a, footer, .guide-heading a { font-size: .95rem; }
+nav a { font-weight: 550; text-decoration: none; }
+nav a:hover, footer a:hover, .guide-heading a:hover { color: var(--orchid); text-decoration: underline; }
+.intro {
+  display: grid;
+  grid-template-columns: minmax(0, .85fr) minmax(0, 1.45fr);
+  gap: clamp(1.8rem, 4vw, 4rem);
+  align-items: center;
+  padding-block: clamp(4rem, 8.3vw, 9rem);
+}
+h1, h2, h3, p, figure { margin: 0; }
+h1, h2, h3, .wordmark { text-wrap: balance; }
+h1 {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(3.2rem, 5.6vw, 6rem);
+  line-height: 1.01;
+  letter-spacing: -.073em;
+}
+h1 span { color: var(--orchid); }
+.pitch p { max-width: 35ch; margin-top: 1.5rem; color: var(--muted); line-height: 1.62; font-size: clamp(1.05rem, 1.35vw, 1.24rem); }
+.download { display: inline-flex; margin-top: 1.8rem; min-height: 3.2rem; align-items: center; border-radius: .55rem; padding: .7rem 1.3rem; background: var(--orchid); color: #21102d; text-decoration: none; font-weight: 700; }
+.download:hover { background: #ead0ff; }
+.preview { min-width: 0; }
+.preview a { display: block; border: 1px solid #645070; border-radius: .75rem; overflow: hidden; box-shadow: 0 1.3rem 4rem #08050b88; }
+.preview img { display: block; width: 100%; height: auto; }
+figcaption { display: flex; gap: .65rem; align-items: center; margin-top: .8rem; color: var(--muted); font-size: .875rem; }
+figcaption span { color: #aa81c4; }
+.guide { padding-block: 2.6rem 3.8rem; border-top: 1px solid var(--edge); }
+.guide-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+h2 { font-size: clamp(1.9rem, 3vw, 2.6rem); letter-spacing: -.055em; line-height: 1.1; }
+.guide-heading a { color: var(--orchid); }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(1.4rem, 4vw, 4rem); margin-top: 2.1rem; }
+article { border-top: 1px solid var(--edge); padding-top: 1.15rem; }
+h3 { font-size: 1.18rem; letter-spacing: -.025em; }
+article p { margin-top: .65rem; line-height: 1.65; color: var(--muted); }
+kbd { white-space: nowrap; padding: .08rem .3rem; border: 1px solid #5a4864; border-bottom-width: 2px; border-radius: .27rem; background: #271e30; color: var(--ink); font-family: "IBM Plex Mono", Consolas, monospace; font-size: .88em; }
+footer { border-top: 1px solid var(--edge); color: var(--muted); padding-block: 1.5rem; }
+@media (max-width: 56rem) {
+  .intro { grid-template-columns: minmax(0, 1fr); padding-block: 3.6rem; }
+  .pitch p { max-width: 49ch; }
+  .steps { grid-template-columns: 1fr; }
+  .mast { min-height: 4.7rem; }
+}
+@media (max-width: 32rem) {
+  .mast { align-items: flex-start; flex-direction: column; gap: .65rem; padding-block: .85rem; }
+  .intro { gap: 2rem; padding-block: 2.7rem; }
+  .guide { padding-block: 2rem; }
+  footer { align-items: flex-start; flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#100c16">
+  <meta name="description" content="Afterimage is a Rust desktop app for saving, trimming, and exporting gameplay clips on Windows.">
+  <title>Afterimage — Gameplay clips for Windows</title>
+  <link rel="icon" href="assets/afterimage.ico">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body id="top">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="mast wrap">
+    <a class="wordmark" href="#top"><img src="assets/afterimage.ico" width="39" height="39" alt="">Afterimage</a>
+    <nav aria-label="Main navigation">
+      <a href="#getting-started">Getting started</a>
+      <a href="https://github.com/vlyxxxxxq/afterimage">GitHub</a>
+    </nav>
+  </header>
+  <main id="main">
+    <section class="intro wrap" aria-labelledby="headline">
+      <div class="pitch">
+        <h1 id="headline">Save the last<br><span>30 seconds.</span></h1>
+        <p>Afterimage keeps recent gameplay ready in your Windows tray. Press a shortcut to save the moment, then trim and export your clip.</p>
+        <a class="download" href="https://github.com/vlyxxxxxq/afterimage/releases/latest">Download for Windows</a>
+      </div>
+      <figure class="preview">
+        <a href="assets/galaxy-violet.webp" aria-label="Open the full-size Galaxy Violet design concept">
+          <img src="assets/galaxy-violet.webp" width="1672" height="941" fetchpriority="high" alt="A violet clip editor with a space-racing preview, thumbnail timeline, and clip library.">
+        </a>
+        <figcaption>Galaxy Violet <span aria-hidden="true">/</span> Editor design concept</figcaption>
+      </figure>
+    </section>
+    <section id="getting-started" class="guide wrap" aria-labelledby="guide-title">
+      <div class="guide-heading"><h2 id="guide-title">Getting started</h2><a href="https://github.com/vlyxxxxxq/afterimage#readme">Read the setup guide</a></div>
+      <div class="steps">
+        <article><h3>Record in the background</h3><p>Afterimage records from the Windows tray. Open its tray menu to pause recording or view your library.</p></article>
+        <article><h3>Save a replay</h3><p>Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F8</kbd> to save the last 30 seconds. Pick a different replay length in settings.</p></article>
+        <article><h3>Trim your clip</h3><p>Open a saved clip, choose its start and end, and export an MP4. The original stays in your library.</p></article>
+      </div>
+    </section>
+  </main>
+  <footer class="wrap"><span>Afterimage for Windows</span><a href="https://github.com/vlyxxxxxq/afterimage">Rust source on GitHub</a></footer>
+</body>
+</html>
