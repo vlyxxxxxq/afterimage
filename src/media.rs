@@ -1,4 +1,4 @@
-use crate::audio::Loopback;
+use crate::audio::{AudioClip, Loopback};
 use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -246,18 +246,16 @@ fn snapshot_files(
     let dir = Scratch::new(&root.join("rust-jobs"))?;
     let mut list = String::new();
     for (i, file) in files.iter().enumerate() {
-        fs::copy(file, dir.0.join(format!("{i}.ts")))?;
+        let pinned = dir.0.join(format!("{i}.ts"));
+        // Completed segments are immutable. Pin their data before the recorder rotates them.
+        if fs::hard_link(file, &pinned).is_err() {
+            fs::copy(file, &pinned)?;
+        }
         list.push_str(&format!("file '{i}.ts'\n"));
     }
     fs::write(dir.0.join("list.txt"), list)?;
-    let mut audio = false;
-    if let Some(r) = loopback {
-        audio = r.save(
-            &dir.0.join("audio.wav"),
-            fs::metadata(files.last().unwrap())?.modified()?,
-            files.len(),
-        )?;
-    }
+    let end = fs::metadata(files.last().unwrap())?.modified()?;
+    let audio = loopback.and_then(|r| r.snapshot(end, files.len()));
     Ok(Snapshot { dir, audio })
 }
 impl Drop for Recorder {
@@ -268,7 +266,7 @@ impl Drop for Recorder {
 }
 pub struct Snapshot {
     dir: Scratch,
-    audio: bool,
+    audio: Option<AudioClip>,
 }
 impl Snapshot {
     pub fn finish(self, target: &Path) -> Result<()> {
@@ -276,7 +274,8 @@ impl Snapshot {
         c.current_dir(&self.dir.0).args([
             "-v", "error", "-f", "concat", "-safe", "0", "-i", "list.txt",
         ]);
-        if self.audio {
+        if let Some(audio) = self.audio {
+            audio.write(&self.dir.0.join("audio.wav"))?;
             c.args([
                 "-i",
                 "audio.wav",
@@ -301,6 +300,23 @@ fn publish(c: &mut Command, target: &Path) -> Result<()> {
     }
     result.map(|_| ())
 }
+#[derive(Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Quality {
+    High,
+    #[default]
+    Balanced,
+    Compact,
+}
+impl Quality {
+    fn crf(self) -> &'static str {
+        match self {
+            Self::High => "16",
+            Self::Balanced => "19",
+            Self::Compact => "26",
+        }
+    }
+}
 pub fn export(
     input: &Path,
     target: &Path,
@@ -308,6 +324,7 @@ pub fn export(
     end: f64,
     shape: u32,
     mute: bool,
+    quality: Quality,
 ) -> Result<()> {
     ensure!(
         start.is_finite() && end.is_finite() && start >= 0.0 && end > start,
@@ -334,7 +351,7 @@ pub fn export(
             "-preset",
             "veryfast",
             "-crf",
-            "19",
+            quality.crf(),
             "-pix_fmt",
             "yuv420p",
         ]);
@@ -389,7 +406,15 @@ mod tests {
             assert!((duration(&path)? - expected).abs() < 0.05);
         }
         let edited = dir.0.join("edit.mp4");
-        export(&dir.0.join("replay-45.mp4"), &edited, 1.0, 3.0, 1, true)?;
+        export(
+            &dir.0.join("replay-45.mp4"),
+            &edited,
+            1.0,
+            3.0,
+            1,
+            true,
+            Quality::High,
+        )?;
         assert!((duration(&edited)? - 2.0).abs() < 0.05);
         let info = run(command("ffprobe")
             .args([

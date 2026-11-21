@@ -16,6 +16,8 @@ pub struct Clip {
     pub file: PathBuf,
     pub title: String,
     pub star: bool,
+    #[serde(default)]
+    pub tags: Vec<String>,
     pub created: String,
 }
 pub fn id(path: &Path) -> String {
@@ -63,6 +65,7 @@ impl Library {
                         .into_owned(),
                     file: p,
                     star: false,
+                    tags: Vec::new(),
                     created: chrono::DateTime::<chrono::Local>::from(created)
                         .format("%Y-%m-%dT%H:%M:%S")
                         .to_string(),
@@ -93,6 +96,7 @@ impl Library {
                 file,
                 title,
                 star: false,
+                tags: Vec::new(),
                 created: chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
             },
         );
@@ -102,7 +106,7 @@ impl Library {
         write(&self.root.join("library.json"), &self.clips)
     }
     pub fn rows(&self) -> Vec<Value> {
-        self.clips.iter().map(|c|json!({"id":id(&c.file),"title":c.title,"star":c.star,"date":c.created,"draft":self.cuts.get(&c.file)})).collect()
+        self.clips.iter().map(|c|json!({"id":id(&c.file),"title":c.title,"tags":c.tags,"star":c.star,"date":c.created,"draft":self.cuts.get(&c.file)})).collect()
     }
     pub fn target(&self, prefix: &str) -> PathBuf {
         self.videos.join(format!(

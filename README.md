@@ -15,7 +15,7 @@ Capture begins as soon as the app starts. An early save keeps the history availa
 
 ## Edit a clip
 
-Search, rename, or favorite clips in the library. Import an existing video, or select a replay to open the editor. Drag the orchid handles to trim, or scrub and press **I** and **O**. **Space** previews the selection. The arrow keys move by a tenth of a second. Choose original, vertical, or square framing, and optionally mute audio before exporting a new MP4.
+Search by title or tag, filter favorites, or sort by date or title. In the editor, enter comma-separated tags next to the title and select **Save details**. The replay shortcut also works during an import or export. Import an existing video, or select a replay to open the editor. Drag the orchid handles to trim, or scrub and press **I** and **O**. **Space** previews the selection. The arrow keys move by a tenth of a second. Hold **Shift** for 10 ms nudges, or type an exact in/out time in seconds. Loop the selection at 0.25× through 2× to review timing. **Ctrl+Z** and **Ctrl+Y** undo and redo trim, crop, and mute changes during the current edit. Export quality offers High quality, Balanced, and Smaller file presets. Preview speed only affects playback in the editor. Choose original, vertical, or square framing, and optionally mute audio before exporting a new MP4.
 
 ## Storage and upgrades
 

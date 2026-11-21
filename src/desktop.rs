@@ -40,12 +40,17 @@ const SHOW_STUDIO: u32 = windows::Win32::UI::WindowsAndMessaging::WM_APP + 0x41;
 
 type Done = std::result::Result<(PathBuf, String, bool), String>;
 #[derive(Debug)]
+enum JobKind {
+    Replay,
+    Edit,
+}
+#[derive(Debug)]
 enum Action {
     Cmd(Value),
     Open,
     Exit,
     Tick,
-    Done(Done),
+    Done(JobKind, Done),
     Art(String, String),
 }
 fn post(proxy: &EventLoopProxy<Action>, a: Action) {
@@ -82,6 +87,7 @@ struct Studio {
     wants: bool,
     ready: usize,
     busy: bool,
+    saving: bool,
     bound: bool,
     message: String,
     retry: Instant,
@@ -135,12 +141,19 @@ impl Studio {
                 )
             })
             .collect::<Vec<_>>();
-        json!({"maximized":w.is_maximized(),"settings":self.s,"running":self.rec.is_some(),"wants":self.wants,"ready":self.ready,"busy":self.busy,"bound":self.bound,"message":self.message,"displays":displays,"audioError":self.rec.as_ref().map(Recorder::audio_error).unwrap_or_default()})
+        json!({"maximized":w.is_maximized(),"settings":self.s,"running":self.rec.is_some(),"wants":self.wants,"ready":self.ready,"busy":self.busy,"saving":self.saving,"bound":self.bound,"message":self.message,"displays":displays,"audioError":self.rec.as_ref().map(Recorder::audio_error).unwrap_or_default()})
     }
-    fn work(&mut self, f: impl FnOnce() -> Result<(PathBuf, String, bool)> + Send + 'static) {
-        self.busy = true;
+    fn work(
+        &mut self,
+        kind: JobKind,
+        f: impl FnOnce() -> Result<(PathBuf, String, bool)> + Send + 'static,
+    ) {
+        match kind {
+            JobKind::Replay => self.saving = true,
+            JobKind::Edit => self.busy = true,
+        }
         let proxy = self.proxy.clone();
-        thread::spawn(move || post(&proxy, Action::Done(f().map_err(|e| e.to_string()))));
+        thread::spawn(move || post(&proxy, Action::Done(kind, f().map_err(|e| e.to_string()))));
     }
     fn command(&mut self, j: Value, w: &Window, web: &WebView) -> Result<()> {
         let cmd = j["cmd"].as_str().unwrap_or("");
@@ -188,7 +201,7 @@ impl Studio {
                 self.tick(w);
             }
             "save" => {
-                ensure!(!self.busy, "A save or export is already in progress.");
+                ensure!(!self.saving, "Your previous replay is still saving.");
                 let snap = self
                     .rec
                     .as_ref()
@@ -196,7 +209,7 @@ impl Studio {
                     .snapshot(self.s.seconds as usize, &self.lib.root)?;
                 let target = self.lib.target("Replay");
                 self.message = "Saving replay…".into();
-                self.work(move || {
+                self.work(JobKind::Replay, move || {
                     snap.finish(&target)?;
                     Ok((
                         target,
@@ -222,10 +235,14 @@ impl Studio {
                     self.bound = true;
                 }
                 library::write(&self.lib.root.join("settings.json"), &s)?;
+                let capture_changed = (self.s.audio, self.s.fps, self.s.height, self.s.monitor)
+                    != (s.audio, s.fps, s.height, s.monitor);
                 self.s = s;
-                self.rec = None;
-                self.ready = 0;
-                self.retry = Instant::now();
+                if capture_changed {
+                    self.rec = None;
+                    self.ready = 0;
+                    self.retry = Instant::now();
+                }
                 self.message = "Settings saved.".into();
                 self.tick(w);
             }
@@ -247,6 +264,26 @@ impl Studio {
                         !t.is_empty() && t.chars().count() <= 120,
                         "Enter a title up to 120 characters."
                     );
+                    if let Some(value) = j.get("tags") {
+                        let values = value.as_array().context("Invalid tags")?;
+                        ensure!(values.len() <= 12, "Use up to 12 tags per clip.");
+                        let mut tags: Vec<String> = Vec::new();
+                        for value in values {
+                            let tag = value.as_str().context("Invalid tag")?.trim();
+                            ensure!(
+                                tag.chars().count() <= 32,
+                                "Use up to 32 characters per tag."
+                            );
+                            if !tag.is_empty()
+                                && !tags
+                                    .iter()
+                                    .any(|existing| existing.eq_ignore_ascii_case(tag))
+                            {
+                                tags.push(tag.into());
+                            }
+                        }
+                        c.tags = tags;
+                    }
                     c.title = t.into()
                 } else {
                     c.star = !c.star
@@ -272,8 +309,16 @@ impl Studio {
                 {
                     let target = self.lib.target("Import");
                     self.message = "Importing video…".into();
-                    self.work(move || {
-                        media::export(&input, &target, 0.0, media::duration(&input)?, 0, false)?;
+                    self.work(JobKind::Edit, move || {
+                        media::export(
+                            &input,
+                            &target,
+                            0.0,
+                            media::duration(&input)?,
+                            0,
+                            false,
+                            media::Quality::Balanced,
+                        )?;
                         let title = input
                             .file_stem()
                             .unwrap_or_default()
@@ -290,6 +335,7 @@ impl Studio {
                 let end = j["end"].as_f64().context("Choose an end time")?;
                 let shape = j["shape"].as_u64().unwrap_or(0) as u32;
                 let mute = j["mute"] == true;
+                let quality = serde_json::from_value(j["quality"].clone()).unwrap_or_default();
                 let name = c
                     .title
                     .chars()
@@ -311,8 +357,8 @@ impl Studio {
                     );
                     let add = target.parent() == Some(&self.lib.videos);
                     self.message = "Exporting selection…".into();
-                    self.work(move || {
-                        media::export(&c.file, &target, start, end, shape, mute)?;
+                    self.work(JobKind::Edit, move || {
+                        media::export(&c.file, &target, start, end, shape, mute, quality)?;
                         let title = target
                             .file_stem()
                             .unwrap_or_default()
@@ -525,6 +571,7 @@ pub fn run() -> Result<()> {
         wants: true,
         ready: 0,
         busy: false,
+        saving: false,
         bound,
         message: if bound {
             String::new()
@@ -562,7 +609,7 @@ pub fn run() -> Result<()> {
                     Action::Open => show(&window),
                     Action::Tick => app.tick(&window),
                     Action::Exit => {
-                        if app.busy {
+                        if app.busy || app.saving {
                             app.message = "Finish the current save or export before closing.".into()
                         } else {
                             app.wants = false;
@@ -583,8 +630,11 @@ pub fn run() -> Result<()> {
                             json!(kind)
                         ));
                     }
-                    Action::Done(r) => {
-                        app.busy = false;
+                    Action::Done(kind, r) => {
+                        match kind {
+                            JobKind::Replay => app.saving = false,
+                            JobKind::Edit => app.busy = false,
+                        }
                         match r {
                             Ok((path, title, add)) => {
                                 app.message = format!("Saved {}", path.display());
@@ -605,7 +655,7 @@ pub fn run() -> Result<()> {
                 } else {
                     "Start recording"
                 });
-                save.set_enabled(app.ready > 0 && !app.busy);
+                save.set_enabled(app.ready > 0 && !app.saving);
                 let _ = tray.set_tooltip(Some(if app.rec.is_some() {
                     "Afterimage · Recording"
                 } else {

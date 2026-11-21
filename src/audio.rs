@@ -13,9 +13,10 @@ use std::{
 };
 use windows::Win32::{Media::Audio::*, System::Com::*};
 
+#[derive(Clone)]
 struct Packet {
     end: SystemTime,
-    bytes: Vec<u8>,
+    bytes: Arc<[u8]>,
 }
 #[derive(Default)]
 struct Data {
@@ -58,19 +59,46 @@ impl Loopback {
     pub fn error(&self) -> String {
         self.data.lock().unwrap().error.clone()
     }
-    pub fn save(&self, path: &Path, end: SystemTime, seconds: usize) -> Result<bool> {
+    pub fn snapshot(&self, end: SystemTime, seconds: usize) -> Option<AudioClip> {
         let d = self.data.lock().unwrap();
         if d.fmt.is_empty() {
-            return Ok(false);
+            return None;
         }
-        let size = seconds * d.hz * d.align;
-        let mut pcm = vec![0; size];
         let start = end - Duration::from_secs(seconds as u64);
-        for p in &d.packets {
-            let Ok(elapsed) = p.end.duration_since(start) else {
+        let packets = d
+            .packets
+            .iter()
+            .filter(|p| p.end >= start)
+            .cloned()
+            .collect();
+        Some(AudioClip {
+            fmt: d.fmt.clone(),
+            hz: d.hz,
+            align: d.align,
+            packets,
+            start,
+            seconds,
+        })
+    }
+}
+pub struct AudioClip {
+    fmt: Vec<u8>,
+    hz: usize,
+    align: usize,
+    packets: Vec<Packet>,
+    start: SystemTime,
+    seconds: usize,
+}
+impl AudioClip {
+    pub fn write(&self, path: &Path) -> Result<()> {
+        let size = self.seconds * self.hz * self.align;
+        let mut pcm = vec![0; size];
+        for p in &self.packets {
+            let Ok(elapsed) = p.end.duration_since(self.start) else {
                 continue;
             };
-            let finish = (elapsed.as_secs_f64() * d.hz as f64).round() as i64 * d.align as i64;
+            let finish =
+                (elapsed.as_secs_f64() * self.hz as f64).round() as i64 * self.align as i64;
             let offset = finish - p.bytes.len() as i64;
             let lo = offset.max(0);
             let hi = finish.min(size as i64);
@@ -79,18 +107,17 @@ impl Loopback {
                     .copy_from_slice(&p.bytes[(lo - offset) as usize..(hi - offset) as usize]);
             }
         }
-        let fmt = d.fmt.clone();
-        drop(d);
+        let fmt = &self.fmt;
         let mut f = File::create(path)?;
         f.write_all(b"RIFF")?;
         f.write_all(&((20 + fmt.len() + size) as u32).to_le_bytes())?;
         f.write_all(b"WAVEfmt ")?;
         f.write_all(&(fmt.len() as u32).to_le_bytes())?;
-        f.write_all(&fmt)?;
+        f.write_all(fmt)?;
         f.write_all(b"data")?;
         f.write_all(&(size as u32).to_le_bytes())?;
         f.write_all(&pcm)?;
-        Ok(true)
+        Ok(())
     }
 }
 impl Drop for Loopback {
@@ -152,7 +179,10 @@ fn capture(data: &Mutex<Data>, stop: &AtomicBool) -> windows::core::Result<()> {
                 {
                     d.packets.pop_front();
                 }
-                d.packets.push_back(Packet { end, bytes });
+                d.packets.push_back(Packet {
+                    end,
+                    bytes: bytes.into(),
+                });
             }
             thread::sleep(Duration::from_millis(8));
         }
